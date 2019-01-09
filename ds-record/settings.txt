@@ -1,0 +1,5 @@
+#interval_in_milliseconds = 500
+#name = Kevl
+#health_max = 1404
+#print_debug = 0
+(need newline here)
