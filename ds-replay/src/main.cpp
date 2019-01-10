@@ -69,17 +69,17 @@ const glm::vec3 zone_colors[] = {
 glm::vec3 nice_red = rgb_to_vec3(190, 38, 15);
 glm::vec3 nice_blue = rgb_to_vec3(49, 162, 242);
 
-// const int default_screen_width = 1280;
-// const int default_screen_height = 720;
-const int default_screen_width = 1920;
-const int default_screen_height = 1200;
-
 GLFWwindow* window; 
 
-const float camera_move_speed = 1.0f * 60.0f;
-const float camera_pan_speed = 0.040f * 60.0f;
-glm::vec3 camera_position(-50.0f, 330.0f, 50.0f);
-glm::quat camera_orientation(glm::vec3(glm::radians(60.0f), 0.0f, 0.0f));
+int marker_draw_limit = -1;
+float playback_speed = 100.0f;
+float camera_move_speed = 1.0f * 60.0f;
+float camera_pan_speed = 0.040f * 60.0f;
+float mouse_sensitivity = 0.1f;
+bool camera_mouse_control = false;
+
+glm::vec3 camera_position;
+glm::quat camera_orientation;
 glm::mat4 camera_view;
 
 const GLuint buffer_count = 2;
@@ -99,7 +99,7 @@ std::vector<Model> zone_models;
 Model marker_model;
 
 const char* position_history_path = "positions.txt";
-const float replay_speed = 100.0f;
+const char* settings_path = "settings.txt";
 std::vector<float> delta_history;
 size_t position_history_size;
 size_t position_history_ptr = 0;
@@ -108,8 +108,6 @@ std::vector<glm::vec3> position_history;
 
 const float blue_marker_scale = 0.75f;
 const float red_marker_scale = 2.0f;
-
-bool skip_stationary = true;
 
 float hex_to_float(int x) {
     return *((float*)&x);
@@ -296,45 +294,21 @@ void update() {
     static const GLfloat depth = 1.0f;
     glClearBufferfv(GL_DEPTH, 0, &depth);
 
-    // Move camera towards last marker
-    // static bool lerping_position = false;
-    // glm::vec3 marker_pos = position_history[position_history_ptr];
-    // if (!lerping_position && glm::distance(marker_pos, camera_position) > 200.0f) {
-    //     lerping_position = true;
-    // }
-
-    // if (lerping_position) {
-    //     float t = 0.01f;
-    //     camera_position = marker_pos * t + camera_position * (1.0f - t);
-
-    //     if (glm::distance(marker_pos, camera_position) < 150.0f) {
-    //         lerping_position = false;
-    //     }
-    // }
-
-    // glm::vec3 angles = glm::eulerAngles(q);
-
-    // static bool lerping_orientation = false;
-    // glm::quat marker_angles = glm::eulerAngles(glm::quat(glm::vec4(marker_pos - camera_position, 1.0f)));
-    // if (glm::distance(marker_pos, camera_position) < 0.1f) {
-    //     lerping_orientation = false;
-    // }
-    // if (!lerping_orientation && marker_angles.y - angles.y > 0.2f) {
-    //     lerping_orientation = true;
-    // }
-
-    // if (lerping_orientation) {
-    //     float t = 0.01f;
-    //     camera_orientation = glm::lerp(camera_orientation, marker_orientation, t);
-    // }
-    
-
     //
     // Update camera
     //
 
     static float prev_mouse_x; 
     static float prev_mouse_y;
+    static bool initialized_prev_mouse = false;
+    if (!initialized_prev_mouse) {
+        double temp_x, temp_y;
+        glfwGetCursorPos(window, &temp_x, &temp_y);
+        prev_mouse_x = (float)temp_x;
+        prev_mouse_y = (float)temp_y;
+        initialized_prev_mouse = true;
+    }
+
     double mouse_x, mouse_y;
     glfwGetCursorPos(window, &mouse_x, &mouse_y);
     float mouse_dx = (float)mouse_x - prev_mouse_x;
@@ -343,9 +317,11 @@ void update() {
     prev_mouse_y = (float)mouse_y;
 
     glm::vec3 camera_pan(0.0f);
-    float sensitivity = 0.1f;
-    camera_pan.x += mouse_dy * sensitivity;
-    camera_pan.y += mouse_dx * sensitivity;
+
+    if (camera_mouse_control) {
+        camera_pan.x += mouse_dy * mouse_sensitivity;
+        camera_pan.y += mouse_dx * mouse_sensitivity;
+    }
 
     // Update camera orientation
     if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) camera_pan.x += -camera_pan_speed;
@@ -389,7 +365,7 @@ void update() {
     // Increment position history pointer
     if (playing && position_history_ptr < position_history_size - 1) {
         static float delta_time_buffer = 0.0f;
-        delta_time_buffer += delta_time * replay_speed;
+        delta_time_buffer += delta_time * playback_speed;
 
         while (delta_time_buffer > 0.0f && position_history_ptr < position_history_size - 1) {
             delta_time_buffer -= delta_history[position_history_ptr];
@@ -399,10 +375,19 @@ void update() {
 
     glUniformMatrix4fv(model_location, 1, GL_FALSE, glm::value_ptr(glm::scale(glm::vec3(blue_marker_scale))));
 
+    // Limit amount of markers drawn if there's a limit, start skipping the oldest ones
+    int starting_marker_instance = 0;
+    if (marker_draw_limit != -1) {
+        starting_marker_instance = position_history_ptr - marker_draw_limit;
+        if (starting_marker_instance < 0) {
+            starting_marker_instance = 0;
+        }
+    }
+
     // Draw all except last marker as blue
     if (position_history_ptr > 1) {
         glUniform4f(object_color_location, nice_blue.x, nice_blue.y, nice_blue.z, 1.0f);
-        glDrawArraysInstancedBaseInstance(GL_TRIANGLES, marker_model.offset, marker_model.vertex_count, (position_history_ptr - 1) + 1, 0);
+        glDrawArraysInstancedBaseInstance(GL_TRIANGLES, marker_model.offset, marker_model.vertex_count, (position_history_ptr - 1) + 1, starting_marker_instance);
     }
 
     // Draw last marker as red
@@ -457,6 +442,77 @@ void glfw_error_callback(int error, const char *description) {
 }
 
 int main(int, char**) {
+    bool fullscreen;
+    bool skip_stationary_positions;
+    int display_width;
+    int display_height;
+
+    // Load settings
+    {
+        FILE* file = fopen(settings_path, "r");
+        if (file == NULL) {
+            printf("Failed to open settings file %s\n", settings_path);
+            exit(1);
+        }
+
+        char buffer[100];
+        while (true) {
+            int scan_result = fscanf(file, "%s", buffer);
+            if (scan_result == -1) {
+                break;
+            }
+
+            if (strcmp(buffer, "#playback_speed") == 0) {
+                int playback_speed_int;
+                fscanf(file, " = %d\n", &playback_speed_int);
+                playback_speed = (float)playback_speed_int;
+            } else if (strcmp(buffer, "#fullscreen") == 0) {
+                int fullscreen_int;
+                fscanf(file, " = %d\n", &fullscreen_int);
+                if (fullscreen_int == 0) {
+                    fullscreen = false;
+                } else {
+                    fullscreen = true;
+                }
+            } else if (strcmp(buffer, "#display_width") == 0) {
+                fscanf(file, " = %d\n", &display_width);
+            } else if (strcmp(buffer, "#display_height") == 0) {
+                fscanf(file, " = %d\n", &display_height);
+            } else if (strcmp(buffer, "#skip_stationary_positions") == 0) {
+                int skip_stationary_positions_int;
+                fscanf(file, " = %d\n", &skip_stationary_positions_int);
+                if (skip_stationary_positions_int == 0) {
+                    skip_stationary_positions = false;
+                } else {
+                    skip_stationary_positions = true;
+                }
+            } else if (strcmp(buffer, "#camera_move_speed") == 0) {
+                int camera_move_speed_int;
+                fscanf(file, " = %d\n", &camera_move_speed_int);
+                camera_move_speed = (float)camera_move_speed_int / 1000 * 60.0f;
+            } else if (strcmp(buffer, "#camera_pan_speed") == 0) {
+                int camera_pan_speed_int;
+                fscanf(file, " = %d\n", &camera_pan_speed_int);
+                camera_pan_speed = (float)camera_pan_speed_int / 1000 * 60.0f;
+            } else if (strcmp(buffer, "#mouse_sensitivity") == 0) {
+                int mouse_sensitivity_int;
+                fscanf(file, " = %d\n", &mouse_sensitivity_int);
+                mouse_sensitivity = (float)mouse_sensitivity_int / 1000;
+            } else if (strcmp(buffer, "#marker_draw_limit") == 0) {
+                fscanf(file, " = %d\n", &marker_draw_limit);
+            } else if (strcmp(buffer, "#camera_mouse_control") == 0) {
+                int camera_mouse_control_int;
+                fscanf(file, " = %d\n", &camera_mouse_control_int);
+                if (camera_mouse_control_int == 0) {
+                    camera_mouse_control = false;
+                } else {
+                    camera_mouse_control = true;
+                }
+            }
+        }
+        fclose(file);
+    }
+
     //
     // Init glfw and gl3w
     //
@@ -465,9 +521,17 @@ int main(int, char**) {
         return 1;
     }
 
-    window = glfwCreateWindow(default_screen_width, default_screen_height, "main", glfwGetPrimaryMonitor(), NULL);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    // window = glfwCreateWindow(default_screen_width, default_screen_height, "main", NULL, NULL);
+    if (fullscreen) {
+        window = glfwCreateWindow(display_width, display_height, "main", glfwGetPrimaryMonitor(), NULL);
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    } else {
+        window = glfwCreateWindow(display_width, display_height, "main", NULL, NULL);
+    }
+
+    if (camera_mouse_control) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    }
+
     if (window == NULL) {
         trace("Failed to create glfw window");
         return 1;
@@ -524,7 +588,7 @@ int main(int, char**) {
     glEnable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     // Call window size callback with default dimensions to initialize projection and viewport 
-    window_size_callback(window, default_screen_width, default_screen_height);
+    window_size_callback(window, display_width, display_height);
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -600,7 +664,7 @@ int main(int, char**) {
                 break;
             }
 
-            if (skip_stationary && prev_x == x && prev_y == y && prev_z == z) {
+            if (skip_stationary_positions && prev_x == x && prev_y == y && prev_z == z) {
                 continue;
             }
 
@@ -626,6 +690,11 @@ int main(int, char**) {
                 offsets[i * 3 + j] = (&pos[0])[j];
             }
         }
+
+        // Set camera position next to first marker
+        camera_position = glm::vec3(first_offset.x, first_offset.y + 100.0f, first_offset.z + 50.0f);
+        // Look towards first marker
+        camera_orientation = glm::quat(glm::vec3(glm::radians(60.0f), 0.0f, 0.0f));
     }
 
     // Fill instance buffer

@@ -1,0 +1,18 @@
+alt-tabbing in fullscreen doesn't work
+#fullscreen = 0
+
+#playback_speed = 100
+
+#display_width = 1920
+#display_height = 1080
+
+#skip_stationary_positions = 1
+
+-1 for no limit
+#marker_draw_limit = -1
+
+#camera_move_speed = 1000
+#camera_pan_speed  = 40
+#mouse_sensitivity  = 100
+
+#camera_mouse_control = 1
