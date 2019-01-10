@@ -237,10 +237,10 @@ int main(int, char**) {
             }
 
             if (PSTATUS == -1) {
-                printf("Failed to find PSTATUS\n");
+                printf("Failed to find PSTATUS. Make sure that the character name and health max is correct and that the game is running and you are logged into character.\n");
                 exit(1);
             } else {
-                printf("Found PSTATUS, starting to record\n");
+                printf("Found PSTATUS, starting to record.\n");
             }
         }
 
@@ -410,10 +410,11 @@ int main(int, char**) {
         // TODO: figure out why sometimes it fails to find position after death
         if (clock() - last_write_success_time > no_writes_alarm_interval) {
             printf("\a");
-            printf("Failed to read position. health_max=%d mana_max=%d stamina_max=%d, PCHARACTER=%d\n", health_max, mana_max, stamina_max, PCHARACTER);
+            printf("Failed to read position. Restart recorder to continue.\n");
+            // printf("Failed to read position. health_max=%d mana_max=%d stamina_max=%d, PCHARACTER=%d\n", health_max, mana_max, stamina_max, PCHARACTER);
 
             if (ended_search_early_because_time) {
-                printf("ended_search_early_because_time is SET\n");
+                // printf("ended_search_early_because_time is SET\n");
             }
 
             if (PCHARACTER != -1) {
@@ -424,11 +425,11 @@ int main(int, char**) {
 
                 if (chase_success) {
                     if (print_debug) {
-                        printf("Match at %x:\n", PCHARACTER);
-                        printf("x=%f\ny=%f\nz=%f\n", hex_to_float(x), hex_to_float(y), hex_to_float(z));
+                        // printf("Match at %x:\n", PCHARACTER);
+                        // printf("x=%f\ny=%f\nz=%f\n", hex_to_float(x), hex_to_float(y), hex_to_float(z));
                     }
                 } else {
-                    printf("chase failed\n");
+                    // printf("chase failed\n");
                 }
             }
         }
