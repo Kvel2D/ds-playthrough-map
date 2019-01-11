@@ -16,3 +16,4 @@ alt-tabbing in fullscreen doesn't work
 #mouse_sensitivity  = 100
 
 #camera_mouse_control = 1
+(need newline here)
