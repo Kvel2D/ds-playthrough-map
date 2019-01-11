@@ -7,6 +7,13 @@
 #include <Windows.h>
 #include <tlhelp32.h>
 
+// NOTE: the bug with recording sometimes stopping after death is because of page relocations which move PCHARACTER too far
+// from the start of process memory. The way the tool works is it needs to have an upper limit on how long to scan pages before giving
+// up because during character death the PCHARACTER structure doesn't exist in memory so we need to avoid wasting a minute or 
+// more scanning all pages of the process. For that reason there is a sanity_check_time which is set to 4 times how long the first
+// PCHARACTER search took. Since page relocation might make the needed search time to be larger than this limit, the searches are stopped
+// early and PCHARACTER is not found.
+
 struct Page {
   char* start;
   size_t size;
@@ -407,7 +414,6 @@ int main(int, char**) {
         }
 
         // Sound alarm if no writes happen for too long
-        // TODO: figure out why sometimes it fails to find position after death
         if (clock() - last_write_success_time > no_writes_alarm_interval) {
             printf("\a");
             printf("Failed to read position. Restart recorder to continue.\n");
