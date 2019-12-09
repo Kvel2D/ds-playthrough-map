@@ -7,7 +7,7 @@ https://www.youtube.com/watch?v=3Vt8WuTZHOk
 ## Dependencies:
 
 Need GLFW and OpenGL to compile ds-replay.
-The current build system is Makefiles using MinGW but you can make your own buildsystem with anything else.
+To build this I used make with MinGW but you can use any other build system.
 
 ## How it works:
 
