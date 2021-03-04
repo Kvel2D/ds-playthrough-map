@@ -216,25 +216,27 @@ GLfloat* load_model(GLuint* vertex_count, const char* path, bool invert_downward
 
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
-    char line_header[100];
+    char line[100];
 
     while (true) {
-        int scan_result = fscanf(file, "%s", line_header);
-        if (scan_result == EOF) {
+        char *fgets_result = fgets(line, 1000, file);
+
+        const bool eof_reached = (fgets_result == NULL);
+        if (eof_reached) {
             break;
         }
 
-        if (strcmp(line_header, "v") == 0) {
-            GLfloat vertex[3];
-            fscanf(file, "%f %f %f\n", &vertex[0], &vertex[1], &vertex[2]);
+        if (line[0] == 'v') {
+            char *end_ptr = line + strlen("v ");
             for (size_t i = 0; i < 3; i++) {
-                vertices.push_back(vertex[i]);
+                const GLfloat index = strtof(end_ptr, &end_ptr);
+                vertices.push_back(index);
             }
-        } else if (strcmp(line_header, "f") == 0) {
-            GLuint index[3];
-            fscanf(file, "%d %d %d\n", &index[0], &index[1], &index[2]);
+        } else if (line[0] == 'f') {
+            char *end_ptr = line + strlen("f ");
             for (size_t i = 0; i < 3; i++) {
-                indices.push_back(index[i]);
+                const GLuint index = strtod(end_ptr, &end_ptr);
+                indices.push_back(index);
             }
         }
     }
