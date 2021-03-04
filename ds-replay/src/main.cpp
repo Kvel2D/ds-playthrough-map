@@ -216,10 +216,11 @@ GLfloat* load_model(GLuint* vertex_count, const char* path, bool invert_downward
 
     std::vector<GLfloat> vertices;
     std::vector<GLuint> indices;
-    char line[100];
+    const size_t line_size = 100;
+    char line[line_size];
 
     while (true) {
-        char *fgets_result = fgets(line, 1000, file);
+        char *fgets_result = fgets(line, line_size, file);
 
         const bool eof_reached = (fgets_result == NULL);
         if (eof_reached) {
