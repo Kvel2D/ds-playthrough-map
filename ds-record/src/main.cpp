@@ -7,6 +7,10 @@
 #include <Windows.h>
 #include <tlhelp32.h>
 
+// NOTE: im pretty sure that the problem of tracking position of player is already solved in a better and less broken way than here by
+// cheat engine and what not. Code below is pretty much me blindly exploring and finding a minimum working solution that is broken in
+// many ways (and can even crash your pc).
+
 // NOTE: the bug with recording sometimes stopping after death is because of page relocations which move PCHARACTER too far
 // from the start of process memory. The way the tool works is it needs to have an upper limit on how long to scan pages before giving
 // up because during character death the PCHARACTER structure doesn't exist in memory so we need to avoid wasting a minute or 
